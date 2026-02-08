@@ -213,24 +213,10 @@
       *----------------------------------------------------------------*
        POPULATE-HEADER-INFO.
 
-           MOVE FUNCTION CURRENT-DATE  TO WS-CURDATE-DATA
-
-           MOVE CCDA-TITLE01           TO TITLE01O OF COUSR1AO
-           MOVE CCDA-TITLE02           TO TITLE02O OF COUSR1AO
-           MOVE WS-TRANID              TO TRNNAMEO OF COUSR1AO
-           MOVE WS-PGMNAME             TO PGMNAMEO OF COUSR1AO
-
-           MOVE WS-CURDATE-MONTH       TO WS-CURDATE-MM
-           MOVE WS-CURDATE-DAY         TO WS-CURDATE-DD
-           MOVE WS-CURDATE-YEAR(3:2)   TO WS-CURDATE-YY
-
-           MOVE WS-CURDATE-MM-DD-YY    TO CURDATEO OF COUSR1AO
-
-           MOVE WS-CURTIME-HOURS       TO WS-CURTIME-HH
-           MOVE WS-CURTIME-MINUTE      TO WS-CURTIME-MM
-           MOVE WS-CURTIME-SECOND      TO WS-CURTIME-SS
-
-           MOVE WS-CURTIME-HH-MM-SS    TO CURTIMEO OF COUSR1AO.
+           COPY CSPHDRPY REPLACING
+               ==:CDEMO-MAPNAME:== BY ==COUSR1AO==
+               ==:CDEMO-TRANID:==  BY ==WS-TRANID==
+               ==:CDEMO-PGMNAME:== BY ==WS-PGMNAME==.
 
       *----------------------------------------------------------------*
       *                      WRITE-USER-SEC-FILE

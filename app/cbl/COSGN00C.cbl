@@ -145,6 +145,7 @@
        SEND-SIGNON-SCREEN.
 
            PERFORM POPULATE-HEADER-INFO
+           PERFORM POPULATE-HEADER-SYSINFO
 
            MOVE WS-MESSAGE TO ERRMSGO OF COSGN0AO
 
@@ -176,24 +177,15 @@
       *----------------------------------------------------------------*
        POPULATE-HEADER-INFO.
 
-           MOVE FUNCTION CURRENT-DATE  TO WS-CURDATE-DATA
+           COPY CSPHDRPY REPLACING
+               ==:CDEMO-MAPNAME:== BY ==COSGN0AO==
+               ==:CDEMO-TRANID:==  BY ==WS-TRANID==
+               ==:CDEMO-PGMNAME:== BY ==WS-PGMNAME==.
 
-           MOVE CCDA-TITLE01           TO TITLE01O OF COSGN0AO
-           MOVE CCDA-TITLE02           TO TITLE02O OF COSGN0AO
-           MOVE WS-TRANID              TO TRNNAMEO OF COSGN0AO
-           MOVE WS-PGMNAME             TO PGMNAMEO OF COSGN0AO
-
-           MOVE WS-CURDATE-MONTH       TO WS-CURDATE-MM
-           MOVE WS-CURDATE-DAY         TO WS-CURDATE-DD
-           MOVE WS-CURDATE-YEAR(3:2)   TO WS-CURDATE-YY
-
-           MOVE WS-CURDATE-MM-DD-YY    TO CURDATEO OF COSGN0AO
-
-           MOVE WS-CURTIME-HOURS       TO WS-CURTIME-HH
-           MOVE WS-CURTIME-MINUTE      TO WS-CURTIME-MM
-           MOVE WS-CURTIME-SECOND      TO WS-CURTIME-SS
-
-           MOVE WS-CURTIME-HH-MM-SS    TO CURTIMEO OF COSGN0AO
+      *----------------------------------------------------------------*
+      *                      POPULATE-HEADER-SYSINFO
+      *----------------------------------------------------------------*
+       POPULATE-HEADER-SYSINFO.
 
            EXEC CICS ASSIGN
                APPLID(APPLIDO OF COSGN0AO)
