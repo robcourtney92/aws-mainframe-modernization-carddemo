@@ -80,7 +80,7 @@ The application exposes **20+ CICS transactions** covering:
 
 #### Batch Components
 
-**31 COBOL source programs** and **38 JCL jobs** handle:
+**31 core COBOL source programs** (plus 13 in optional modules, 44 total) and **38 core JCL jobs** (plus 8 in optional modules, 46 total) handle:
 
 - **Data Loading**: ACCTFILE, CARDFILE, CUSTFILE, XREFFILE, TRANFILE
 - **Transaction Processing**: POSTTRAN (CBTRN02C), COMBTRAN, TRANBKP
@@ -92,7 +92,7 @@ The application exposes **20+ CICS transactions** covering:
 
 #### Copybooks (Shared Data Structures)
 
-**30 copybooks** define record layouts for all VSAM datasets, BMS maps, and inter-program communication areas.
+**30 core copybooks** (plus 15 in optional modules, 45 total) define record layouts for all VSAM datasets, BMS maps, and inter-program communication areas. There are also **17 BMS maps** in `app/bms/` defining 3270 screen layouts.
 
 ### 1.3 Data Architecture
 
@@ -116,7 +116,7 @@ Additional data features:
 - **Alternate Indexes (AIX)**: CARDDATA has an AIX for alternate card number lookup
 - **GDG (Generation Data Groups)**: Used for transaction backups (`TRANSACT.BKUP`) and rejected records (`DALYREJS`)
 - **EBCDIC Encoding**: All data files use EBCDIC character encoding
-- **Packed Decimal (COMP-3)**: Financial amounts use `S9(09)V99 COMP-3` format
+- **Numeric Formats**: Core VSAM record copybooks (CVTRA05Y, CVACT01Y) use zoned decimal (`PIC S9(n)V99`). COMP-3 packed decimal is used in WORKING-STORAGE variables within programs (CBACT01C, COACTUPC, COBIL00C), the export copybook (CVEXPORT.cpy), and extensively in the optional authorization module (CIPAUSMY, CIPAUDTY). Both formats require careful handling during data migration.
 
 ### 1.4 Batch Processing Landscape
 
@@ -128,14 +128,20 @@ CLOSEFIL -> TRANBKP -> WAITSTEP -> OPENFIL
 ```
 
 **Weekly Cycle** (Control-M folders: `WEEKLY-TransactionTypesDBRefresh`, `WEEKLY-DisclosureGroupsRefresh`):
+
+Two parallel chains triggered after MNTTRDB2 completes:
 ```
-MNTTRDB2 -> CLOSEFIL -> DISCGRP -> WAITSTEP -> TRANEXTR -> OPENFIL
+MNTTRDB2 -+-> [DisclosureGroupsRefresh] CLOSEFIL -> DISCGRP -> WAITSTEP -> OPENFIL
+          |
+          +-> [TransactionTypesDBRefresh] TRANEXTR
 ```
 
-**Monthly Cycle** (Control-M folder: `MONTHLY-Statement`):
+**Monthly Cycle** (Control-M folder: `MONTHLY-InterestCalculation`):
 ```
-CLOSEFIL -> CREASTMT (SORT -> VSAM LOAD -> CBSTM03A) -> WAITSTEP -> OPENFIL
+CLOSEFIL -> INTCALC -> COMBTRAN -> WAITSTEP -> OPENFIL
 ```
+
+> **Note**: CREASTMT (statement generation) is documented in the README batch sequence but does not appear in the Control-M scheduler definitions. It may be triggered manually or by a separate scheduling mechanism.
 
 The full batch sequence involves **20+ jobs** that must execute in a specific dependency order, coordinated through CLOSEFIL/OPENFIL pairs to manage CICS file access during batch windows.
 
@@ -194,7 +200,7 @@ AWS defines eight migration strategies (the "8 Rs") applicable to mainframe mode
 
 | Capability | Description | CardDemo Relevance |
 |:-----------|:------------|:-------------------|
-| **Analyze** | Automated code analysis, dependency mapping, complexity scoring | Maps all 31 COBOL programs and 30 copybooks |
+| **Analyze** | Automated code analysis, dependency mapping, complexity scoring | Maps all 44 COBOL programs and 45 copybooks (core + optional modules) |
 | **Document** | AI-generated business logic documentation, data dictionaries | Extracts rules from CICS programs and batch logic |
 | **Decompose** | Identifies bounded contexts and service boundaries | Splits card management, transactions, accounts into domains |
 | **Plan & Test** | Migration plan generation, test case creation, test data collection | Generates functional tests for each CICS transaction |
@@ -384,7 +390,7 @@ Based on CardDemo's architecture characteristics, we recommend a **disposition s
 **Activities:**
 
 1. **Code Analysis with AWS Transform**
-   - Upload all 31 COBOL source files and 30 copybooks to Amazon S3
+   - Upload all 44 COBOL source files (31 core + 13 optional) and 45 copybooks to Amazon S3
    - Run AWS Transform analysis to generate:
      - Program dependency graphs
      - Data flow diagrams
@@ -662,8 +668,8 @@ COBOL Copybook (CVACT01Y.cpy)          ->  PostgreSQL Table
 |:-----------|:----------------|:-----------------|
 | `PIC 9(n)` | `BIGINT` or `DECIMAL` | Direct numeric conversion |
 | `PIC X(n)` | `VARCHAR(n)` or `CHAR(n)` | EBCDIC-to-UTF-8 conversion required |
-| `PIC S9(n)V99 COMP-3` | `DECIMAL(n+2, 2)` | Unpack from packed decimal format |
-| `PIC S9(n)V99` | `DECIMAL(n+2, 2)` | Handle sign in zone digit |
+| `PIC S9(n)V99` | `DECIMAL(n+2, 2)` | Handle sign in zone digit (used in core VSAM copybooks like CVTRA05Y, CVACT01Y) |
+| `PIC S9(n)V99 COMP-3` | `DECIMAL(n+2, 2)` | Unpack from packed decimal format (used in CVEXPORT.cpy, WORKING-STORAGE, optional modules) |
 | `FILLER` | N/A | Dropped during migration |
 
 ### Migration Approach
@@ -689,7 +695,7 @@ Generation Data Groups (transaction backups, rejected records) migrate to S3 wit
 
 | Risk | Likelihood | Impact | Mitigation |
 |:-----|:-----------|:-------|:-----------|
-| **Financial calculation precision loss** during COMP-3 conversion | Medium | Critical | Validate every COMP-3 field with bit-level comparison; use Java BigDecimal |
+| **Financial calculation precision loss** during numeric conversion | Medium | Critical | Core VSAM records use zoned decimal (not COMP-3); COMP-3 is used in export/optional modules. Validate both formats with bit-level comparison; use Java BigDecimal |
 | **EBCDIC sort order differences** in converted application | Medium | High | Compare sort outputs between mainframe and cloud for all SORT jobs |
 | **Batch window elimination** breaks downstream dependencies | Medium | High | Phase 3 only after thorough integration testing; maintain batch option as fallback |
 | **AWS Transform produces non-idiomatic Java code** | High | Medium | Plan for manual code review and refactoring sprints post-conversion |
